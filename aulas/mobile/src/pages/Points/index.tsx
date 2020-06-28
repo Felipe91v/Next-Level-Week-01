@@ -2,9 +2,10 @@ import React, { useEffect, useState } from 'react';
 import Constants from 'expo-constants';
 import { Feather as Icon } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, Alert } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import { SvgUri } from 'react-native-svg';
+import * as Location from 'expo-location';
 import api from '../../services/api';
 
 interface Item {
@@ -16,7 +17,32 @@ interface Item {
 const Points = () => {
     const [items, setItems] = useState<Item[]>([]);
     const [selectedItems, setSelectedItems] = useState<number[]>([]);
+    
+    const [initialPosition, setInicialPosition] = useState<[number, number]>([0, 0]); 
+
     const navigation = useNavigation();
+
+    useEffect(() => {
+        async function loadPosition() {
+            const { status } = await Location.requestPermissionsAsync();
+
+            if (status !== 'granted') {
+                Alert.alert('Oooops./', 'Precisamos de sua permissão para obter a localização');
+                return;
+            }
+
+            const location = await Location.getCurrentPositionAsync();
+
+            const { latitude , longitude } = location.coords;
+
+            setInicialPosition([
+             latitude,
+             longitude
+            ])
+        }
+
+        loadPosition();
+    }, []);
 
     useEffect(() => {
         api.get('/items').then(response => {
@@ -32,14 +58,14 @@ const Points = () => {
         navigation.navigate('Detail');
     }
 
-    function handleSelectItem(id: number){
+    function handleSelectItem(id: number) {
         const alreadySelected = selectedItems.findIndex(item => item === id);
 
-        if(alreadySelected >= 0) {
-          const filteredItems = selectedItems.filter(item => item !== id);
-        setSelectedItems(filteredItems);
+        if (alreadySelected >= 0) {
+            const filteredItems = selectedItems.filter(item => item !== id);
+            setSelectedItems(filteredItems);
         } else {
-        setSelectedItems([...selectedItems, id])
+            setSelectedItems([...selectedItems, id])
         }
     }
 
@@ -54,11 +80,13 @@ const Points = () => {
                 <Text style={styles.description}>Encontre no mapa um ponto de coleta</Text>
 
                 <View style={styles.mapContainer}>
-                    <MapView
+                    { initialPosition[0] !== 0 && (
+                        <MapView
                         style={styles.map}
+                        loadingEnabled={initialPosition[0] === 0}
                         initialRegion={{
-                            latitude: -23.5513716,
-                            longitude: -46.8931377,
+                            latitude: initialPosition[0],
+                            longitude: initialPosition[1],
                             latitudeDelta: 0.014,
                             longitudeDelta: 0.014
                         }}
@@ -78,6 +106,7 @@ const Points = () => {
                             </View>
                         </Marker>
                     </MapView>
+                    )}
                 </View>
             </View>
             <View style={styles.itemsContainer}>
